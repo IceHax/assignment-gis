@@ -1,0 +1,229 @@
+<html lang="en">
+<head>
+	<link rel="stylesheet" href="dependencies/leaflet.css" />
+	<script src="dependencies/leaflet.js"></script>
+	<script src="dependencies/leaflet.ajax.min.js"></script>
+	<link href="dependencies/nouislider.min.css" rel="stylesheet">
+	<script src="dependencies/nouislider.min.js"></script>
+	<script src="dependencies/wNumb.js"></script>
+</head>
+<body>
+	<h1>CalmTrip</h1>
+	<div>
+	   <table style='margin-left: 0px;margin-right: auto;margin-top: -50px;'>
+			<tr>
+				<td/>
+				<td style="padding:50px 40px 00px 0;">
+					Max nature distance (m):<br>
+					<input type="text" onkeypress='return isNumber(event)' name="park_distance_input" id="park_distance">
+				</td>
+				<td style="padding:0 40px 10px 0;">
+					<p style="padding: 0px 0 25px 0">Air polution level</p>
+					<div id="slider" style="width:150px;"/>
+				</td>
+				<td style="padding:0 40px 10px 0;">
+					<p style="padding: 0px 0 25px 0px">Noise level (dB)</p>
+					<div id="slider2" style="width:150px;"/>
+				</td>
+				<td style="padding:40px 0px 10px 0;">
+				<input type="button" value="Search" onclick="search()" style="padding: 20px 20px 20px 20px">
+			   </td>
+			</tr>
+	   </table>
+	</div>
+	
+	<div id="mapid" style="width: 1280; height: 720;"></div>
+	<input id="parks_button" type="button" value="Show parks" onclick="toggleParks();" />
+	<input id="polution_button" type="button" value="Show air polution" onclick="togglePolution();" />
+	<input id="noise_button" type="button" value="Show noise levels" onclick="toggleNoise();" />
+	<script>
+	function isNumber(event) {
+    var key = (event.hasOwnProperty('charCode')) ? event.charCode : event.which;
+		return ((key >= 48 && key <= 57) || key == 8) ? true : false;
+	}
+	var polution_slider = document.getElementById('slider');
+	var noise_slider = document.getElementById('slider2');
+	noUiSlider.create(polution_slider, {
+		start: [1, 5],
+		connect: true,
+		step: 1,
+		tooltips: [wNumb({ decimals: 0 }),wNumb({ decimals: 0 })],
+		range: {
+			'min': 1,
+			'max': 5
+		}
+	});
+	noUiSlider.create(noise_slider, {
+		start: [40, 80],
+		connect: true,
+		step: 5,
+		tooltips: [wNumb({ decimals: 0 }),wNumb({ decimals: 0 })],
+		range: {
+			'min': 40,
+			'max': 80
+		}
+	});	
+	function onEachFeature_airbnb(feature, layer){
+		var p = feature.properties;
+		layer.bindPopup(
+		'<b>Room ID : </b>' + '<a href=\'https://www.airbnb.com/rooms/' + p.room_id + '\'>' + p.room_id+'</a>' + '<br>'+
+		'<b>Type : </b>' + p.room_type + '<br>'+
+		'<b>Rating : </b>' + p.overall_satisfaction + ' / 5' + '<br>'+
+		'<b>Min. Stay : </b>' + p.minstay + '<br>'+
+		'<b>Accommodates : </b>' + p.accommodates + '<br>'+
+		'<b>Price : </b>' + p.price + '<br>'+
+		'<b>Noise : </b>' + p.noise_level + ' dB<br>'+
+		'<b>Polution lvl : </b>' + p.polution_level + ' / 5' + '<br>'+
+		'<b>Park : </b>' + p.park_name +'(' + p.park_distance +' m)' + '<br>'
+		);
+	}
+	function onEachFeature_park(feature, layer){
+		layer.bindPopup('<b>Name: </b>' + feature.properties.name);
+	}
+
+	function rg_interpolation(val,maximum){//goes from 00 FF 00 to FF FF 00 to FF 00 00
+		var portion = Math.floor((510/maximum) * val);
+		var b =  (portion > 255);
+		var red_plus = b ? 255 : portion;
+		var green_minus = portion - red_plus;
+		return 	[red_plus, green_minus];
+	}
+
+	var park_style = {
+		"color": "#008000",
+		"fillOpacity": 0.2
+	};
+
+	function airbnb_marker_func(feature, latlng){
+		var p = feature.properties;
+		var airbnb_marker_properties = {
+			radius: 3.5,
+			fillColor: dynamic_color(p.polution_level,p.noise_level),
+			color: "#000",
+			weight: 1,
+			opacity: 1,
+			fillOpacity: 0.8
+		};
+		return L.circleMarker(latlng, airbnb_marker_properties)
+	}
+	function dynamic_color(polution,noise){
+		var c_arr = rg_interpolation(2*(polution - 1) + Math.floor((noise-40)/5) , 16);
+		var red = c_arr[0];
+		var green = 255 - c_arr[1];
+		return rgb_str(red,green,0)
+	}
+
+
+	function rgb_str(r, g, b)
+	{
+		var hexval = 0x1000000 + b + 0x100 * g + 0x10000 *r ;
+		return '#'+hexval.toString(16).substr(1);
+	}
+
+	function toggleParks(){
+		var b_park = document.getElementById("parks_button");
+		if (nature_parks_layer == null){
+			nature_parks_layer = new L.GeoJSON.AJAX("http://localhost:8080/parks",{dataType:"json", onEachFeature : onEachFeature_park, style : park_style});       
+			nature_parks_layer.addTo(mymap);
+			b_park.value = "Hide parks"
+		} else {
+			mymap.removeLayer(nature_parks_layer);
+			nature_parks_layer = null;
+			b_park.value = "Show parks"		
+		}		
+	}
+
+	function onEachFeature_polution(feature, layer){
+		layer.bindPopup('<b>Air polution level: </b>' + feature.properties.level);
+	}
+
+	function onEachFeature_noise(feature, layer){
+		layer.bindPopup('<b>Noise level: </b>' + feature.properties.level + ' dB');
+	}
+
+	function polution_style_func(feature){
+		var greyscale = 0xA0 - feature.properties.level;
+		var fill_c =  rgb_str(greyscale,greyscale,greyscale)
+		var fill_op = 0.0 + 0.20 * (feature.properties.level-1);
+		return {color: fill_c, fillColor: fill_c,fillOpacity: fill_op};
+	}
+
+	function noise_style_func(feature){
+		var noise_level = Math.floor((feature.properties.level - 40) / 5);
+		var c_arr = rg_interpolation(noise_level, 8);
+		var red = c_arr[0];
+		var green = 255 - c_arr[1];
+
+		var fill_c = rgb_str(red, green, 0);
+		var fill_op = 0.5;
+		return {color: fill_c, fillColor: fill_c,fillOpacity: fill_op};
+	}
+
+
+
+	function togglePolution(){
+		var b_polution = document.getElementById("polution_button");
+		if (polution_layer == null){
+			polution_layer = new L.GeoJSON.AJAX("http://localhost:8080/polution",{dataType:"json", onEachFeature : onEachFeature_polution, style : polution_style_func});       
+			polution_layer.addTo(mymap);
+			b_polution.value = "Hide air polution";
+		} else {
+			mymap.removeLayer(polution_layer);
+			polution_layer = null;
+			b_polution.value = "Show air polution";	
+		}		
+	}
+
+	function toggleNoise(){
+		var b_polution = document.getElementById("noise_button");
+		if (noise_layer == null){
+			noise_layer = new L.GeoJSON.AJAX("http://localhost:8080/noise",{dataType:"json", onEachFeature : onEachFeature_noise ,style : noise_style_func});       
+			noise_layer.addTo(mymap);
+			b_polution.value = "Hide noise level";
+		} else {
+			mymap.removeLayer(noise_layer);
+			noise_layer = null;
+			b_polution.value = "Show noise level";	
+		}	
+	}
+	
+	
+	function search(){
+		var air_polution_arr = polution_slider.noUiSlider.get();
+		var polution_min=Math.floor(air_polution_arr[0]).toString();
+		var polution_max=Math.floor(air_polution_arr[1]).toString();		
+		
+		var noise_arr = noise_slider.noUiSlider.get();
+		var noise_min=Math.floor(noise_arr[0]).toString();
+		var noise_max=Math.floor(noise_arr[1]).toString();
+		
+		var max_park_distance = document.getElementById('park_distance').value;
+	
+		if (geojsonLayer != null){
+			mymap.removeLayer(geojsonLayer);
+		}
+		var url = "http://localhost:8080/search?noise_min="+ noise_min +"&noise_max="+ noise_max +"&polution_min=" + polution_min+ "&polution_max=" + polution_max + "&max_park_distance=" + max_park_distance
+		geojsonLayer = new L.GeoJSON.AJAX(url,{dataType:"json", onEachFeature : onEachFeature_airbnb, pointToLayer : airbnb_marker_func});       
+		geojsonLayer.addTo(mymap);
+	}
+
+	var nature_parks_layer = null;
+	var polution_layer = null;
+	var noise_layer = null;
+	var geojsonLayer = null;
+		
+	var mymap = L.map('mapid').setView([50.070477, 14.41556], 14);
+	 L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+		attribution: 'PDT @ FIIT 2016',
+		maxZoom: 18,
+		id: 'i1010902.23hbea4m',
+		accessToken: 'pk.eyJ1IjoiaTEwMTA5MDIiLCJhIjoiY2l2ZnB5MGwxMDAzejJ6cWRmdjliY254NiJ9.9-l9Jv0o3-_CFODnThInIw'
+	}).addTo(mymap);
+
+
+	geojsonLayer = new L.GeoJSON.AJAX("http://localhost:8080/default",{dataType:"json",onEachFeature : onEachFeature_airbnb, pointToLayer: airbnb_marker_func});       
+	geojsonLayer.addTo(mymap);
+
+	</script>
+</body>
+</html>

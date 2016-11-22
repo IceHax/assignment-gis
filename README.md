@@ -17,11 +17,32 @@ Build a map-based application, which lets the user see geo-based data on a map a
 - [Open Street Maps](https://www.openstreetmap.org/)
 
 ## My project
+**Application description**:
 
-Fill in (either in English, or in Slovak):
+**CalmTrip** allows you to find the right accommodation for your trip to Prague.
+It can display air polution levels, noise levels and nature parks and allows to search accommodation by environment parameters. 
+The results are displayed on map as points.
+Quality of accommodation is visualized by color (interpolation between Green - best and Red - worst).
+The points displayed on the map can be clicked to display tooltip with detailed information (Airbnb and environment information). 
 
-**Application description**: `<fill in>`
 
-**Data source**: `<fill in>`
+**Data source**: 
+- [Airbnb Data Collection: Downloadable Data and City Maps](http://tomslee.net/airbnb-data/)
+- [Geoportal Praha OpenData](http://www.geoportalpraha.cz/cs/opendata)
 
-**Technologies used**: `<fill in>`
+**Technologies used**:
+- Client : HTML, Javascript, Leaflet (+ Mapbox)
+- Server : Python, Bottle
+- Database : PostgreSQL with PostGIS extension
+
+The application is usable as docker container.
+To run, execute following commands:
+
+```bash
+docker build . -t calmtrip
+docker run -p 8080:8080 calmtrip
+```
+
+The application is then accessible via web browser on `localhost:8080`
+
+![CalmTrip screenshot](screenshots/screenshot.png)
